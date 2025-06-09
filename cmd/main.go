@@ -10,6 +10,15 @@ import (
 	"time"
 )
 
+type TaskFunc func() (string, error)
+
+var taskRegistry = map[string]TaskFunc{}
+
+// RegisterTask allows tasks to register themselves by name
+func RegisterTask(name string, fn TaskFunc) {
+	taskRegistry[name] = fn
+}
+
 type TaskStatus string
 
 const (
@@ -24,9 +33,10 @@ type Task struct {
 	ID        string     `json:"id"`
 	Status    TaskStatus `json:"status"`
 	CreatedAt time.Time  `json:"created_at"`
-	Duration  float64    `json:"duration"` // seconds
+	Duration  float64    `json:"duration"`
 	Result    string     `json:"result,omitempty"`
 	Error     string     `json:"error,omitempty"`
+	TaskName  string     `json:"task_name,omitempty"`
 }
 
 type TaskManager struct {
@@ -40,12 +50,13 @@ func NewTaskManager() *TaskManager {
 	}
 }
 
-func (tm *TaskManager) CreateTask() *Task {
+func (tm *TaskManager) CreateTask(taskName string) *Task {
 	id := strconv.FormatInt(time.Now().UnixNano()+rand.Int63n(1000), 36)
 	task := &Task{
 		ID:        id,
 		Status:    StatusPending,
 		CreatedAt: time.Now(),
+		TaskName:  taskName,
 	}
 	tm.mu.Lock()
 	tm.tasks[id] = task
@@ -61,14 +72,26 @@ func (tm *TaskManager) runTask(task *Task) {
 	tm.mu.Unlock()
 
 	start := time.Now()
-	// Simulate work
-	time.Sleep(time.Duration(2+rand.Intn(5)) * time.Second)
+	fn, ok := taskRegistry[task.TaskName]
+	if !ok {
+		tm.mu.Lock()
+		task.Status = StatusFailed
+		task.Error = "Task not found: " + task.TaskName
+		tm.mu.Unlock()
+		return
+	}
+	result, err := fn()
 
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
 	task.Duration = time.Since(start).Seconds()
-	task.Status = StatusFinished
-	task.Result = "Task completed successfully"
+	if err != nil {
+		task.Status = StatusFailed
+		task.Error = err.Error()
+	} else {
+		task.Status = StatusFinished
+		task.Result = result
+	}
 }
 
 func (tm *TaskManager) GetTask(id string) (*Task, bool) {
@@ -91,7 +114,14 @@ func (tm *TaskManager) DeleteTask(id string) bool {
 var manager = NewTaskManager()
 
 func createTaskHandler(w http.ResponseWriter, r *http.Request) {
-	task := manager.CreateTask()
+	var req struct {
+		TaskName string `json:"task_name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.TaskName == "" {
+		http.Error(w, "Missing or invalid task_name", http.StatusBadRequest)
+		return
+	}
+	task := manager.CreateTask(req.TaskName)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(task)
 }
