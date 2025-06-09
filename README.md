@@ -19,16 +19,6 @@ This project is a simple HTTP API for managing background tasks. It allows users
 go-task-api
 ├── cmd
 │   └── main.go          # Entry point of the application
-├── internal
-│   ├── api
-│   │   └── handler.go   # HTTP handlers for the API
-│   ├── task
-│   │   ├── manager.go    # Manages background tasks
-│   │   └── model.go      # Defines Task struct
-│   └── utils
-│       └── time.go       # Utility functions for time operations
-├── go.mod                # Module definition
-├── go.sum                # Checksums for module dependencies
 └── README.md             # Project documentation
 ```
 
