@@ -1,7 +1,9 @@
+// api.go
 package main
 
 import (
 	"encoding/json"
+	"go-task-api/internals/task"
 	"log"
 	"math/rand"
 	"net/http"
@@ -9,15 +11,6 @@ import (
 	"sync"
 	"time"
 )
-
-type TaskFunc func() (string, error)
-
-var taskRegistry = map[string]TaskFunc{}
-
-// RegisterTask allows tasks to register themselves by name
-func RegisterTask(name string, fn TaskFunc) {
-	taskRegistry[name] = fn
-}
 
 type TaskStatus string
 
@@ -66,31 +59,23 @@ func (tm *TaskManager) CreateTask(taskName string) *Task {
 	return task
 }
 
-func (tm *TaskManager) runTask(task *Task) {
+func (tm *TaskManager) runTask(mytask *Task) {
 	tm.mu.Lock()
-	task.Status = StatusRunning
+	mytask.Status = StatusRunning
 	tm.mu.Unlock()
 
 	start := time.Now()
-	fn, ok := taskRegistry[task.TaskName]
-	if !ok {
-		tm.mu.Lock()
-		task.Status = StatusFailed
-		task.Error = "Task not found: " + task.TaskName
-		tm.mu.Unlock()
-		return
-	}
-	result, err := fn()
 
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
-	task.Duration = time.Since(start).Seconds()
+	result, err := task.RunTask(mytask.TaskName)
+	mytask.Duration = time.Since(start).Seconds()
 	if err != nil {
-		task.Status = StatusFailed
-		task.Error = err.Error()
+		mytask.Status = StatusFailed
+		mytask.Error = err.Error()
 	} else {
-		task.Status = StatusFinished
-		task.Result = result
+		mytask.Status = StatusFinished
+		mytask.Result = result
 	}
 }
 
