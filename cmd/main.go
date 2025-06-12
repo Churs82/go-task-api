@@ -7,10 +7,10 @@ import (
 )
 
 func main() {
-	http.HandleFunc("/tasks", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/task", handlers.CreateTaskHandler)
+
+	http.HandleFunc("/task/{id}", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
-		case http.MethodPost:
-			handlers.CreateTaskHandler(w, r)
 		case http.MethodGet:
 			handlers.GetTaskHandler(w, r)
 		case http.MethodDelete:
@@ -19,6 +19,12 @@ func main() {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
+
+	http.HandleFunc("/task/{id}/status", handlers.GetTaskStatusHandler)
+
+	http.HandleFunc("/task/{id}/result", handlers.GetTaskResultHandler)
+
+	http.HandleFunc("/tasks", handlers.GetTaskListHandler)
 
 	log.Println("Listening on :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
