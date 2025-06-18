@@ -78,7 +78,7 @@ func GetTaskResultHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func DeleteTaskHandler(w http.ResponseWriter, r *http.Request) {
-	id := r.URL.Query().Get("id")
+	id := r.PathValue("id")
 	ok := manager.DeleteTask(id)
 	if !ok {
 		http.Error(w, "Task not found", http.StatusNotFound)
